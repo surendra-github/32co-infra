@@ -1,9 +1,20 @@
-output "db_endpoint" {
-  description = "RDS instance endpoint"
-  value       = aws_db_instance.main.endpoint
+# DynamoDB and Secrets Manager outputs
+output "dynamodb_table_arn" {
+  description = "ARN of the DynamoDB table"
+  value       = aws_dynamodb_table.items.arn
 }
 
-output "db_password_secret_arn" {
-  description = "ARN of the database password secret"
-  value       = aws_secretsmanager_secret.db_password.arn
+output "dynamodb_table_name" {
+  description = "Name of the DynamoDB table"
+  value       = aws_dynamodb_table.items.name
+}
+
+output "secrets_manager_arn" {
+  description = "ARN of the Secrets Manager secret"
+  value       = aws_secretsmanager_secret.app_secrets.arn
+}
+
+output "secrets_manager_name" {
+  description = "Name of the Secrets Manager secret"
+  value       = aws_secretsmanager_secret.app_secrets.name
 }

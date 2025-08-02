@@ -8,12 +8,6 @@ output "cloudfront_distribution_domain" {
   value       = module.storage.cloudfront_domain_name
 }
 
-output "rds_endpoint" {
-  description = "RDS instance endpoint"
-  value       = module.database.db_endpoint
-  sensitive   = true
-}
-
 output "s3_bucket_name" {
   description = "Name of the S3 bucket for static assets"
   value       = module.storage.s3_bucket_name

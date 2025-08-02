@@ -1,30 +1,5 @@
-variable "vpc_id" {
-  description = "VPC ID"
-  type        = string
-}
-
-variable "subnet_ids" {
-  description = "Subnet IDs for database"
-  type        = list(string)
-}
-
-variable "security_group_id" {
-  description = "Security group ID for database"
-  type        = string
-}
-
-variable "db_instance_class" {
-  description = "RDS instance class"
-  type        = string
-}
-
-variable "db_name" {
-  description = "Database name"
-  type        = string
-}
-
-variable "db_username" {
-  description = "Database username"
+variable "project_name" {
+  description = "Name of the project"
   type        = string
 }
 
@@ -33,13 +8,13 @@ variable "environment" {
   type        = string
 }
 
-variable "project_name" {
-  description = "Project name"
+variable "aws_region" {
+  description = "AWS region"
   type        = string
 }
 
 variable "tags" {
-  description = "Common tags for resources"
+  description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
 }

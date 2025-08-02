@@ -13,4 +13,14 @@ COPYING.*
 NOTICE
 NOTICE.*
 
-# If you want to keep LICENSE files under version control, REMOVE the above block.
+# python code.
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+.venv
+venv/
+ENV/

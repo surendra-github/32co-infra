@@ -1,15 +1,25 @@
+variable "project_name" {
+  description = "Name of the project"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+}
+
 variable "vpc_id" {
-  description = "VPC ID"
+  description = "ID of the VPC"
   type        = string
 }
 
 variable "public_subnet_ids" {
-  description = "Public subnet IDs for ALB"
+  description = "List of public subnet IDs"
   type        = list(string)
 }
 
 variable "private_subnet_ids" {
-  description = "Private subnet IDs for ECS tasks"
+  description = "List of private subnet IDs"
   type        = list(string)
 }
 
@@ -24,67 +34,53 @@ variable "ecs_security_group_id" {
 }
 
 variable "ecs_execution_role_arn" {
-  description = "ARN of ECS execution role"
+  description = "ARN of the ECS execution role"
   type        = string
 }
 
 variable "ecs_task_role_arn" {
-  description = "ARN of ECS task role"
+  description = "ARN of the ECS task role"
   type        = string
 }
 
 variable "ecs_execution_role_name" {
-  description = "Name of ECS execution role"
+  description = "Name of the ECS execution role"
   type        = string
 }
 
 variable "ecs_task_role_name" {
-  description = "Name of ECS task role"
-  type        = string
-}
-
-variable "container_image" {
-  description = "Docker image for the application"
+  description = "Name of the ECS task role"
   type        = string
 }
 
 variable "app_port" {
-  description = "Application port"
+  description = "Port that the application listens on"
   type        = number
+  default     = 8000
+}
+
+variable "container_image" {
+  description = "Docker container image URI"
+  type        = string
 }
 
 variable "s3_bucket_arn" {
-  description = "ARN of S3 bucket for static assets"
+  description = "ARN of the S3 bucket"
   type        = string
 }
 
-variable "database_endpoint" {
-  description = "Database endpoint"
+variable "dynamodb_table_arn" {
+  description = "ARN of the DynamoDB table"
   type        = string
 }
 
-variable "database_name" {
-  description = "Database name"
+variable "dynamodb_table_name" {
+  description = "Name of the DynamoDB table"
   type        = string
 }
 
-variable "database_username" {
-  description = "Database username"
-  type        = string
-}
-
-variable "database_password_arn" {
-  description = "ARN of database password secret"
-  type        = string
-}
-
-variable "environment" {
-  description = "Environment name"
-  type        = string
-}
-
-variable "project_name" {
-  description = "Project name"
+variable "app_secrets_arn" {
+  description = "ARN of the application secrets"
   type        = string
 }
 
