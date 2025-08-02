@@ -1,0 +1,16 @@
+# --- Terraform Specific ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+
+# --- License and legal (optional: only if you dynamically generate or ignore legal files) ---
+LICENSE
+LICENSE.*
+COPYING
+COPYING.*
+NOTICE
+NOTICE.*
+
+# If you want to keep LICENSE files under version control, REMOVE the above block.
