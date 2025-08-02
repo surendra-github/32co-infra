@@ -33,3 +33,9 @@ variable "app_port" {
   type        = number
   default     = 8000
 }
+
+variable "alert_email" {
+  description = "Email address for CloudWatch alerts"
+  type        = string
+  default     = ""
+}

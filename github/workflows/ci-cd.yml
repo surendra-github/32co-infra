@@ -2,51 +2,78 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
 
 env:
   AWS_REGION: us-east-1
-  PROJECT_NAME: "32co" 
-  ENVIRONMENT: "prod" 
-  ECR_REPOSITORY: webapp
-  ECS_SERVICE: "${PROJECT_NAME}-${ENVIRONMENT}-service"  
-  ECS_CLUSTER: "${PROJECT_NAME}-${ENVIRONMENT}-cluster" 
-  CONTAINER_NAME: app
+  PROJECT_NAME: "32co"
+  ENVIRONMENT: "prod"
 
 jobs:
   test:
+    name: Test Application
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: '3.9'
+        cache: 'pip'
+        cache-dependency-path: 'app/requirements.txt'
     
     - name: Install dependencies
+      working-directory: ./app
       run: |
-        cd app
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pytest pytest-cov flake8 bandit safety
     
-    - name: Run tests
+    - name: Lint with flake8
+      working-directory: ./app
       run: |
-        cd app
-        pytest
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Security scan with bandit
+      working-directory: ./app
+      run: bandit -r . -ll -f json -o bandit-report.json || true
+    
+    - name: Check dependencies with safety
+      working-directory: ./app
+      run: safety check --json || true
+    
+    - name: Run tests with coverage
+      working-directory: ./app
+      env:
+        PYTHONPATH: .
+      run: |
+        python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./app/coverage.xml
+        flags: unittests
+        fail_ci_if_error: false
 
   build-and-deploy:
+    name: Build and Deploy
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
+      uses: aws-actions/configure-aws-credentials@v2
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -62,12 +89,22 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         cd app
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker build -t $ECR_REGISTRY/${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-webapp:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-webapp:latest .
+        docker push $ECR_REGISTRY/${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-webapp:$IMAGE_TAG
+        docker push $ECR_REGISTRY/${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-webapp:latest
     
     - name: Update ECS service
       run: |
         aws ecs update-service \
-          --cluster $ECS_CLUSTER \
-          --service $ECS_SERVICE \
-          --force-new-deployment
+          --cluster ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-cluster \
+          --service ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-service \
+          --force-new-deployment \
+          --region ${{ env.AWS_REGION }}
+    
+    - name: Wait for service stability
+      run: |
+        aws ecs wait services-stable \
+          --cluster ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-cluster \
+          --services ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-service \
+          --region ${{ env.AWS_REGION }}

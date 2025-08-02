@@ -268,3 +268,37 @@ resource "aws_iam_role_policy" "ecs_task_secrets" {
     ]
   })
 }
+
+# ECR Repository for container images
+resource "aws_ecr_repository" "app" {
+  name                 = "${var.project_name}-${var.environment}-webapp"
+  image_tag_mutability = "MUTABLE"
+  
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+  
+  tags = var.tags
+}
+
+# ECR Lifecycle Policy
+resource "aws_ecr_lifecycle_policy" "app" {
+  repository = aws_ecr_repository.app.name
+  
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep last 10 images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 10
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}

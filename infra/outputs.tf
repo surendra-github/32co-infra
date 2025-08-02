@@ -22,3 +22,18 @@ output "vpc_id" {
   description = "ID of the VPC"
   value       = module.networking.vpc_id
 }
+
+output "ecr_repository_url" {
+  description = "ECR repository URL for pushing Docker images"
+  value       = module.compute.ecr_repository_url
+}
+
+output "monitoring_dashboard_url" {
+  description = "CloudWatch dashboard URL"
+  value       = module.monitoring.dashboard_url
+}
+
+output "sns_topic_arn" {
+  description = "SNS topic ARN for alerts"
+  value       = module.monitoring.sns_topic_arn
+}

@@ -74,3 +74,19 @@ module "compute" {
   s3_bucket_arn           = module.storage.s3_bucket_arn
   tags                    = local.common_tags
 }
+
+# Add after the compute module
+module "monitoring" {
+  source = "./modules/monitoring"
+  
+  project_name        = var.project_name
+  environment         = var.environment
+  aws_region          = var.aws_region
+  alb_arn            = module.compute.alb_arn
+  target_group_arn   = module.compute.target_group_arn
+  ecs_cluster_name   = module.compute.ecs_cluster_name
+  ecs_service_name   = module.compute.ecs_service_name
+  dynamodb_table_name = module.database.dynamodb_table_name
+  alert_email        = var.alert_email
+  tags               = local.common_tags
+}
