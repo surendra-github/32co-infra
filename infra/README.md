@@ -73,99 +73,34 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
                     │ Internet Gateway│
                     └────────┬────────┘
                              │
-        ┌────────────────────┴────────────────────┐
-        │                  VPC                     │
+        ┌────────────────────┴───────────────────┐
+        │                  VPC                   │
         │  ┌─────────────────────────────────┐   │
         │  │      Public Subnets (2+)        │   │
-        │  │  ┌─────────────────────────┐   │   │
+        │  │  ┌────────────────────────-─┐   │   │
         │  │  │ Application Load Balancer│   │   │
-        │  │  └──────────┬──────────────┘   │   │
+        │  │  └──────────┬──────────────-┘   │   │
         │  │             │                   │   │
-        │  │      ┌──────┴──────┐           │   │
-        │  │      │ NAT Gateway │           │   │
-        │  └──────┴─────────────┴───────────┘   │
-        │                │                        │
-        │  ┌─────────────┴───────────────────┐   │
-        │  │      Private Subnets (2+)       │   │
-        │  │  ┌───────────┐                 │   │
-        │  │  │ECS Fargate│                 │   │
-        │  │  │  Service  │                 │   │
-        │  │  └───────────┘                 │   │
-        │  │  ┌────────────┐                │   │
-        │  │  │ DynamoDB   │                │   │
-        │  │  └────────────┘                │   │
-        │  └─────────────────────────────────┘   │
-        └─────────────────────────────────────────┘
+        │  │      ┌──────┴──────┐            │   │
+        │  │      │ NAT Gateway │            │   │
+        │  └──────┴─────────────┴───────────-┘   │
+        │                │                       │
+        │  ┌─────────────┴──────────────────┐    │
+        │  │      Private Subnets (2+)      │    │
+        │  │  ┌───────────┐                 │    │
+        │  │  │ECS Fargate│                 │    │
+        │  │  │  Service  │                 │    │
+        │  │  └───────────┘                 │    │
+        │  │  ┌────────────┐                │    │
+        │  │  │ DynamoDB   │                │    │
+        │  │  └────────────┘                │    │
+        │  └────────────────────────────────┘    │
+        └────────────────────────────────────────┘
                              │
                     ┌────────┴────────┐
                     │   S3 Bucket     │
                     │ (Static Assets) │
                     └─────────────────┘
-```
-
-## Directory Structure
-
-```
-.
-├── infra/                    # Infrastructure as Code
-│   ├── main.tf              # Root module configuration
-│   ├── variables.tf         # Input variables
-│   ├── outputs.tf           # Output values
-│   ├── versions.tf          # Provider versions
-│   ├── modules/             # Reusable modules
-│   │   ├── networking/      # VPC, subnets, gateways
-│   │   ├── security/        # Security groups, IAM
-│   │   ├── compute/         # ECS, ALB, blue/green, CodeDeploy
-│   │   ├── codedeploy/      # CodeDeploy deployment group and config
-│   │   ├── database/        # DynamoDB
-│   │   ├── storage/         # S3, CloudFront
-│   │   └── monitoring/       # CloudWatch logs, metrics, alarms
-│   └── environments/        # Environment configurations
-│       ├── dev/
-│       ├── staging/
-│       └── prod/
-├── app/                     # Application code (optional)
-└── README.md               # Project documentation
-```
-
-## Prerequisites
-
-1. **AWS Account** with appropriate permissions
-2. **Terraform** >= 1.0
-3. **AWS CLI** configured with credentials
-4. **Docker** (for building container images)
-5. **S3 Bucket** for Terraform state (optional but recommended)
-
-## Quick Start
-
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd <repository-name>/infra
-```
-
-### 2. Configure AWS Credentials
-```bash
-aws configure
-```
-
-### 3. Initialize Terraform
-```bash
-cd infra
-terraform init
-```
-
-### 4. Deploy Infrastructure
-```bash
-# Development environment
-terraform workspace select dev
-terraform plan -var-file=environments/dev/terraform.tfvars
-terraform apply -var-file=environments/dev/terraform.tfvars
-
-# Production environment
-terraform workspace select prod
-terraform plan -var-file=environments/prod/terraform.tfvars
-terraform apply -var-file=environments/prod/terraform.tfvars
 ```
 
 ## Environment Configurations
@@ -213,20 +148,6 @@ After deployment, Terraform will output:
 - Secrets are injected into ECS containers as environment variables using the ECS task definition `secrets` block.
 - IAM policies restrict access so only the ECS task can read the required secrets.
 
-**Example:**
-```python
-import os
-
-db_password = os.environ.get("DB_PASSWORD")
-api_key = os.environ.get("EXTERNAL_API_KEY")
-```
-
-**To update a secret:**
-```bash
-aws secretsmanager update-secret --secret-id "32co/prod/app/secrets" \
-  --secret-string '{"DB_PASSWORD":"your-new-password","EXTERNAL_API_KEY":"your-new-api-key"}'
-```
-
 ## Monitoring & Logging
 
 - **CloudWatch Logs**: All container logs
@@ -257,9 +178,8 @@ terraform apply -var-file=environments/<env>/terraform.tfvars
 3. Run `terraform apply`
 
 ### Scaling
-- Modify `desired_count` in ECS service
-- Adjust auto-scaling min/max capacity
-- Update RDS instance class as needed
+- ECS service scales automatically based on CPU/memory utilization (auto-scaling policies)
+- Manual adjustment of desired count is possible if needed
 
 ## How to Enable Blue/Green Deployments
 

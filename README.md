@@ -53,10 +53,13 @@ A cloud-native application platform built with Infrastructure as Code (Terraform
 ## 🚀 Quick Start
 
 ### Prerequisites
-- AWS CLI configured with appropriate permissions
-- Terraform >= 1.0
-- Docker
-- GitHub account
+
+1. **AWS Account** with appropriate permissions
+2. **Terraform** >= 1.0
+3. **AWS CLI** configured with credentials
+4. **Docker** (for building container images)
+5. **S3 Bucket** for Terraform state (optional but recommended)
+
 
 ### 1. Clone Repository
 ```bash
@@ -239,7 +242,7 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 - Application Load Balancer request metrics
 - DynamoDB read/write metrics
 
-## 🏗️ Project Structure
+## 🏗️ Directory Structure
 
 ```
 32co-infra/
@@ -253,17 +256,20 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 │   ├── variables.tf             # Input variables
 │   ├── outputs.tf               # Output values
 │   ├── versions.tf              # Provider versions
-│   ├── terraform.tfvars         # Variable values
 │   └── modules/                 # Reusable modules
-│       ├── networking/          # VPC, subnets, gateways
-│       ├── security/            # IAM, security groups
-│       ├── compute/             # ECS, ALB, blue/green, CodeDeploy
-│       ├── codedeploy/          # CodeDeploy deployment group and config
-│       ├── database/            # DynamoDB
-│       ├── storage/             # S3
-│       └── monitoring/          # CloudWatch logs, metrics, alarms
+│   |   ├── networking/          # VPC, subnets, gateways
+│   |   ├── security/            # IAM, security groups
+│   |   ├── compute/             # ECS, ALB, blue/green, CodeDeploy
+│   |   ├── codedeploy/          # CodeDeploy deployment group and config
+│   |   ├── database/            # DynamoDB
+│   |   ├── storage/             # S3
+│   |   └── monitoring/          # CloudWatch logs, metrics, alarms
+│   └── environments/            # Environment configurations
+│   |   ├── dev/
+│   |   ├── prod/
+|   └── README.md    
 ├── .github/workflows/           # CI/CD pipeline
-│   └── ci-cd.yml               # GitHub Actions workflow
+│   └── ci-cd.yml                # GitHub Actions workflow
 └── README.md                    # This file
 ```
 
@@ -288,8 +294,8 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 
 ### Operational Assumptions
 - **CloudWatch Monitoring**: AWS CloudWatch for logging and basic monitoring
-- **Manual Scaling**: ECS service with fixed desired count (no auto-scaling)
-- **Rolling Deployments**: Standard ECS deployment strategy
+- **Auto Scaling**: ECS service scales based on CPU and memory utilization
+- **Blue/Green Deployments**: Zero-downtime deployments managed by AWS CodeDeploy
 
 ## ⚠️ Known Limitations
 
@@ -300,7 +306,6 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 - **Public ALB**: Application Load Balancer is internet-facing
 
 ### Scalability Limitations
-- **No Auto Scaling**: Fixed number of ECS tasks
 - **Single Region**: Not designed for multi-region deployments
 - **No CDN**: No content delivery network for static assets
 
@@ -313,6 +318,9 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 - **No Local Development**: No local development environment configuration
 - **Basic CI/CD**: Simple deployment pipeline without advanced strategies
 - **No Feature Flags**: No feature flag system implemented
+
+### Scalability Limitations
+- **Single Region**: Not designed for multi-region deployments
 
 ## 🛠️ Troubleshooting
 
@@ -383,10 +391,8 @@ terraform destroy -auto-approve
 - Implement Secrets Manager for sensitive data
 
 ### Scalability Enhancements
-- Add auto-scaling based on CPU/memory metrics
-- Implement blue/green deployment strategy
-- Add CloudFront CDN for static assets
 - Multi-region deployment capability
+- Add CloudFront CDN for static assets
 
 ### Operational Improvements
 - Enhanced monitoring with CloudWatch alarms
