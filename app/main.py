@@ -129,4 +129,7 @@ async def external_api_status():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    import os
+    host = os.environ.get("UVICORN_HOST", "127.0.0.1")
+    port = int(os.environ.get("UVICORN_PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)

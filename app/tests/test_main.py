@@ -20,10 +20,10 @@ client = TestClient(app)
 
 def test_root():
     response = client.get("/")
-    assert response.status_code == 200
     data = response.json()
-    assert "Welcome to 32co Application" in data["message"]
-    assert data["status"] == "running"
+    assert response.status_code == 200  # nosec
+    assert "Welcome to 32co Application" in data["message"]  # nosec
+    assert data["status"] == "running"  # nosec
 
 @patch('boto3.resource')
 def test_health_check(mock_boto3):
@@ -35,10 +35,10 @@ def test_health_check(mock_boto3):
     mock_boto3.return_value = mock_dynamodb
     
     response = client.get("/health")
-    assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
-    assert data["dynamodb"] == "connected"
+    assert response.status_code == 200  # nosec
+    assert data["status"] == "healthy"  # nosec
+    assert data["dynamodb"] == "connected"  # nosec
 
 @patch('boto3.resource')
 def test_get_items(mock_boto3):
@@ -54,10 +54,10 @@ def test_get_items(mock_boto3):
     mock_boto3.return_value = mock_dynamodb
     
     response = client.get("/items")
-    assert response.status_code == 200
     items = response.json()
-    assert len(items) == 1
-    assert items[0]["name"] == "Test Item"
+    assert response.status_code == 200  # nosec
+    assert len(items) == 1  # nosec
+    assert items[0]["name"] == "Test Item"  # nosec
 
 @patch('boto3.resource')
 @patch('uuid.uuid4')
@@ -79,17 +79,17 @@ def test_create_item(mock_uuid, mock_boto3):
     }
     
     response = client.post("/items", json=test_item)
-    assert response.status_code == 200
     data = response.json()
-    assert data["name"] == "New Item"
-    assert "id" in data
+    assert response.status_code == 200  # nosec
+    assert data["name"] == "New Item"  # nosec
+    assert "id" in data  # nosec
 
 def test_external_api_status():
     response = client.get("/external-api-status")
-    assert response.status_code == 200
     data = response.json()
-    assert "External API key is configured" in data["status"]
-    assert data["key_length"] > 0
+    assert response.status_code == 200  # nosec
+    assert "External API key is configured" in data["status"]  # nosec
+    assert data["key_length"] > 0  # nosec
 
 @patch('boto3.resource')
 def test_get_item_not_found(mock_boto3):
@@ -101,5 +101,5 @@ def test_get_item_not_found(mock_boto3):
     mock_boto3.return_value = mock_dynamodb
     
     response = client.get("/items/nonexistent")
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Item not found"
+    assert response.status_code == 404  # nosec
+    assert response.json()["detail"] == "Item not found"  # nosec
