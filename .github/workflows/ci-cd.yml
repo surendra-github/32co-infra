@@ -20,6 +20,10 @@ env:
   ENVIRONMENT: "prod"
   PYTHON_VERSION: '3.9'
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   # Terraform validation job
   terraform-check:
