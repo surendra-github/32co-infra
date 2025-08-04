@@ -13,7 +13,7 @@ locals {
 # Networking Module
 module "networking" {
   source = "./modules/networking"
-  
+
   vpc_cidr           = var.vpc_cidr
   availability_zones = var.availability_zones
   environment        = var.environment
@@ -24,7 +24,7 @@ module "networking" {
 # Security Module
 module "security" {
   source = "./modules/security"
-  
+
   vpc_id       = module.networking.vpc_id
   app_port     = var.app_port
   environment  = var.environment
@@ -35,7 +35,7 @@ module "security" {
 # Storage Module
 module "storage" {
   source = "./modules/storage"
-  
+
   environment  = var.environment
   project_name = var.project_name
   tags         = local.common_tags
@@ -44,7 +44,7 @@ module "storage" {
 # Database Module
 module "database" {
   source = "./modules/database"
-  
+
   environment  = var.environment
   project_name = var.project_name
   aws_region   = var.aws_region
@@ -78,15 +78,15 @@ module "compute" {
 # Add after the compute module
 module "monitoring" {
   source = "./modules/monitoring"
-  
+
   project_name        = var.project_name
   environment         = var.environment
   aws_region          = var.aws_region
-  alb_arn            = module.compute.alb_arn
-  target_group_arn   = module.compute.target_group_arn
-  ecs_cluster_name   = module.compute.ecs_cluster_name
-  ecs_service_name   = module.compute.ecs_service_name
+  alb_arn             = module.compute.alb_arn
+  target_group_arn    = module.compute.target_group_arn
+  ecs_cluster_name    = module.compute.ecs_cluster_name
+  ecs_service_name    = module.compute.ecs_service_name
   dynamodb_table_name = module.database.dynamodb_table_name
-  alert_email        = var.alert_email
-  tags               = local.common_tags
+  alert_email         = var.alert_email
+  tags                = local.common_tags
 }

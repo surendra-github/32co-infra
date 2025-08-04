@@ -52,6 +52,12 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
   - HTTPS redirect enabled
   - Caching optimized for static content
 
+### 📈 Monitoring Components
+- **CloudWatch Log Groups**: Centralized logging for ECS containers
+- **CloudWatch Metrics**: ECS service metrics, ALB metrics, DynamoDB metrics
+- **CloudWatch Alarms**: Auto-scaling triggers, health checks, and alerting
+- **Monitoring Module**: Modular Terraform code for log groups, metrics, and alarms
+
 ## Infrastructure Diagram
 
 ```
@@ -111,7 +117,8 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
 │   │   ├── security/        # Security groups, IAM
 │   │   ├── compute/         # ECS, ALB, auto-scaling
 │   │   ├── database/        # DynamoDB
-│   │   └── storage/         # S3, CloudFront
+│   │   ├── storage/         # S3, CloudFront
+│   │   └── monitoring/       # CloudWatch logs, metrics, alarms
 │   └── environments/        # Environment configurations
 │       ├── dev/
 │       ├── staging/
@@ -182,6 +189,8 @@ After deployment, Terraform will output:
 - `s3_bucket_name`: Name of the S3 bucket
 - `ecs_cluster_name`: Name of the ECS cluster
 - `vpc_id`: ID of the created VPC
+- `cloudwatch_log_group_name`: Name of the ECS log group
+- `cloudwatch_alarm_arn`: ARN of critical CloudWatch alarms
 
 ## Security Features
 
@@ -219,6 +228,8 @@ aws secretsmanager update-secret --secret-id "32co/prod/app/secrets" \
 - **CloudWatch Logs**: All container logs
 - **Container Insights**: ECS cluster monitoring
 - **CloudWatch Metrics**: Auto-scaling based on CPU utilization
+- Monitoring resources are provisioned automatically via the monitoring module.
+
 
 ## Cost Optimization
 

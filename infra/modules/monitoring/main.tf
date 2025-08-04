@@ -1,7 +1,7 @@
 # SNS Topic for Alerts
 resource "aws_sns_topic" "alerts" {
   name = "${var.project_name}-${var.environment}-alerts"
-  
+
   tags = var.tags
 }
 
@@ -25,12 +25,12 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   alarm_description   = "Alert when ALB has unhealthy targets"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   treat_missing_data  = "notBreaching"
-  
+
   dimensions = {
     TargetGroup  = split(":", var.target_group_arn)[5]
     LoadBalancer = join("/", slice(split("/", var.alb_arn), 1, 4))
   }
-  
+
   tags = var.tags
 }
 
@@ -45,12 +45,12 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
   threshold           = "80"
   alarm_description   = "Alert when ECS CPU exceeds 80%"
   alarm_actions       = [aws_sns_topic.alerts.arn]
-  
+
   dimensions = {
     ClusterName = var.ecs_cluster_name
     ServiceName = var.ecs_service_name
   }
-  
+
   tags = var.tags
 }
 
@@ -65,12 +65,12 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
   threshold           = "85"
   alarm_description   = "Alert when ECS memory exceeds 85%"
   alarm_actions       = [aws_sns_topic.alerts.arn]
-  
+
   dimensions = {
     ClusterName = var.ecs_cluster_name
     ServiceName = var.ecs_service_name
   }
-  
+
   tags = var.tags
 }
 
@@ -86,18 +86,18 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_throttled" {
   alarm_description   = "Alert when DynamoDB requests are throttled"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   treat_missing_data  = "notBreaching"
-  
+
   dimensions = {
     TableName = var.dynamodb_table_name
   }
-  
+
   tags = var.tags
 }
 
 # CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-${var.environment}-dashboard"
-  
+
   dashboard_body = jsonencode({
     widgets = [
       {
@@ -160,9 +160,9 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          query   = "SOURCE '/ecs/${var.project_name}-${var.environment}-app' | fields @timestamp, @message | sort @timestamp desc | limit 100"
-          region  = var.aws_region
-          title   = "Recent Application Logs"
+          query  = "SOURCE '/ecs/${var.project_name}-${var.environment}-app' | fields @timestamp, @message | sort @timestamp desc | limit 100"
+          region = var.aws_region
+          title  = "Recent Application Logs"
         }
       }
     ]

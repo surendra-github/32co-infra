@@ -5,20 +5,20 @@ resource "aws_lb" "main" {
   load_balancer_type = "application"
   security_groups    = [var.alb_security_group_id]
   subnets            = var.public_subnet_ids
-  
+
   enable_deletion_protection = false
-  
+
   tags = var.tags
 }
 
 # ALB Target Group
 resource "aws_lb_target_group" "main" {
-  name     = "${var.project_name}-${var.environment}-tg"
-  port     = var.app_port
-  protocol = "HTTP"
-  vpc_id   = var.vpc_id
+  name        = "${var.project_name}-${var.environment}-tg"
+  port        = var.app_port
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
   target_type = "ip"
-  
+
   health_check {
     enabled             = true
     healthy_threshold   = 2
@@ -30,7 +30,7 @@ resource "aws_lb_target_group" "main" {
     port                = "traffic-port"
     protocol            = "HTTP"
   }
-  
+
   tags = var.tags
 }
 
@@ -39,7 +39,7 @@ resource "aws_lb_listener" "main" {
   load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
-  
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.main.arn
@@ -49,12 +49,12 @@ resource "aws_lb_listener" "main" {
 # ECS Cluster
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-${var.environment}-cluster"
-  
+
   setting {
     name  = "containerInsights"
     value = "enabled"
   }
-  
+
   tags = var.tags
 }
 
@@ -62,7 +62,7 @@ resource "aws_ecs_cluster" "main" {
 resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.project_name}-${var.environment}-app"
   retention_in_days = 30
-  
+
   tags = var.tags
 }
 
@@ -75,19 +75,19 @@ resource "aws_ecs_task_definition" "app" {
   memory                   = "1024"
   execution_role_arn       = var.ecs_execution_role_arn
   task_role_arn            = var.ecs_task_role_arn
-  
+
   container_definitions = jsonencode([
     {
       name  = "app"
       image = var.container_image
-      
+
       portMappings = [
         {
           containerPort = var.app_port
           protocol      = "tcp"
         }
       ]
-      
+
       environment = [
         {
           name  = "PYTHON_ENV"
@@ -102,7 +102,7 @@ resource "aws_ecs_task_definition" "app" {
           value = var.dynamodb_table_name
         }
       ]
-      
+
       secrets = [
         {
           name      = "DB_PASSWORD"
@@ -113,7 +113,7 @@ resource "aws_ecs_task_definition" "app" {
           valueFrom = "${var.app_secrets_arn}:EXTERNAL_API_KEY::"
         }
       ]
-      
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -122,11 +122,11 @@ resource "aws_ecs_task_definition" "app" {
           "awslogs-stream-prefix" = "ecs"
         }
       }
-      
+
       essential = true
     }
   ])
-  
+
   tags = var.tags
 }
 
@@ -137,21 +137,21 @@ resource "aws_ecs_service" "app" {
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 2
   launch_type     = "FARGATE"
-  
+
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [var.ecs_security_group_id]
     assign_public_ip = false
   }
-  
+
   load_balancer {
     target_group_arn = aws_lb_target_group.main.arn
     container_name   = "app"
     container_port   = var.app_port
   }
-  
+
   depends_on = [aws_lb_listener.main]
-  
+
   tags = var.tags
 }
 
@@ -171,7 +171,7 @@ resource "aws_appautoscaling_policy" "ecs_cpu" {
   resource_id        = aws_appautoscaling_target.ecs.resource_id
   scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
   service_namespace  = aws_appautoscaling_target.ecs.service_namespace
-  
+
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
@@ -187,7 +187,7 @@ resource "aws_appautoscaling_policy" "ecs_memory" {
   resource_id        = aws_appautoscaling_target.ecs.resource_id
   scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
   service_namespace  = aws_appautoscaling_target.ecs.service_namespace
-  
+
   target_tracking_scaling_policy_configuration {
     predefined_metric_specification {
       predefined_metric_type = "ECSServiceAverageMemoryUtilization"
@@ -203,7 +203,7 @@ data "aws_region" "current" {}
 resource "aws_iam_role_policy" "ecs_task_s3" {
   name = "s3-access"
   role = var.ecs_task_role_name
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -231,7 +231,7 @@ resource "aws_iam_role_policy" "ecs_task_s3" {
 resource "aws_iam_role_policy" "ecs_task_dynamodb" {
   name = "dynamodb-access"
   role = var.ecs_task_role_name
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -254,7 +254,7 @@ resource "aws_iam_role_policy" "ecs_task_dynamodb" {
 resource "aws_iam_role_policy" "ecs_task_secrets" {
   name = "secrets-manager-access"
   role = var.ecs_task_role_name
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -273,18 +273,18 @@ resource "aws_iam_role_policy" "ecs_task_secrets" {
 resource "aws_ecr_repository" "app" {
   name                 = "${var.project_name}-${var.environment}-webapp"
   image_tag_mutability = "MUTABLE"
-  
+
   image_scanning_configuration {
     scan_on_push = true
   }
-  
+
   tags = var.tags
 }
 
 # ECR Lifecycle Policy
 resource "aws_ecr_lifecycle_policy" "app" {
   repository = aws_ecr_repository.app.name
-  
+
   policy = jsonencode({
     rules = [
       {

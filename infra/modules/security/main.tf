@@ -103,12 +103,12 @@ resource "aws_secretsmanager_secret" "app_secrets" {
   name                    = "${var.project_name}/${var.environment}/app/secrets"
   description             = "Application secrets for ${var.project_name} ${var.environment}"
   recovery_window_in_days = 7
-  
+
   tags = var.tags
 }
 
 resource "aws_secretsmanager_secret_version" "app_secrets" {
-  secret_id     = aws_secretsmanager_secret.app_secrets.id
+  secret_id = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
     DB_PASSWORD      = random_password.db_password.result
     EXTERNAL_API_KEY = "your-external-api-key-here"
