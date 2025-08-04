@@ -228,18 +228,18 @@ jobs:
         curl -f http://$ALB_DNS/health || exit 1
         echo "Deployment verification successful!"
 
-    - name: Notify deployment status
-      if: always()
-      uses: 8398a7/action-slack-notify@v3
-      with:
-        status: ${{ job.status }}
-        text: |
-          Deployment Status: ${{ job.status }}
-          Environment: ${{ env.ENVIRONMENT }}
-          Commit: ${{ github.sha }}
-          Author: ${{ github.actor }}
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+    # - name: Notify deployment status
+    #   if: always()
+    #   uses: 8398a7/action-slack-notify@v3
+    #   with:
+    #     status: ${{ job.status }}
+    #     text: |
+    #       Deployment Status: ${{ job.status }}
+    #       Environment: ${{ env.ENVIRONMENT }}
+    #       Commit: ${{ github.sha }}
+    #       Author: ${{ github.actor }}
+    #   env:
+    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
   # Separate job for development deployment
   deploy-dev:
