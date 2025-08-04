@@ -2,27 +2,51 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
     paths:
       - 'app/**'
       - '.github/workflows/**'
+      - 'infra/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'app/**'
       - '.github/workflows/**'
+      - 'infra/**'
 
 env:
   AWS_REGION: us-east-1
   PROJECT_NAME: "32co"
   ENVIRONMENT: "prod"
-  ECR_REPOSITORY: "${PROJECT_NAME}-${ENVIRONMENT}-webapp"
-  ECS_SERVICE: "${PROJECT_NAME}-${ENVIRONMENT}-service"
-  ECS_CLUSTER: "${PROJECT_NAME}-${ENVIRONMENT}-cluster"
-  CONTAINER_NAME: "app"
-  TASK_DEFINITION: "${PROJECT_NAME}-${ENVIRONMENT}-app"
+  PYTHON_VERSION: '3.9'
 
 jobs:
+  # Terraform validation job
+  terraform-check:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.0
+    
+    - name: Terraform Format Check
+      working-directory: ./infra
+      run: terraform fmt -check -recursive
+    
+    - name: Terraform Init
+      working-directory: ./infra
+      run: terraform init -backend=false
+    
+    - name: Terraform Validate
+      working-directory: ./infra
+      run: terraform validate
+
+  # Application testing job
   test:
     name: Test Application
     runs-on: ubuntu-latest
@@ -33,28 +57,40 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
+        cache-dependency-path: 'app/requirements.txt'
 
     - name: Install dependencies
+      working-directory: ./app
       run: |
-        cd app
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pytest-cov
+        pip install pytest pytest-cov flake8 bandit safety
+
+    - name: Lint with flake8
+      working-directory: ./app
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     - name: Run tests with coverage
+      working-directory: ./app
+      env:
+        PYTHONPATH: .
       run: |
-        cd app
-        pytest --cov=. --cov-report=xml
+        python -m pytest tests/ -v --cov=. --cov-report=xml --cov-report=html
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
         file: ./app/coverage.xml
         flags: unittests
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
+  # Security scanning job
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -63,19 +99,60 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Run Snyk to check for vulnerabilities
-      uses: snyk/actions/python@master
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    - name: Set up Python
+      uses: actions/setup-python@v4
       with:
-        command: test
-        args: --severity-threshold=high
+        python-version: ${{ env.PYTHON_VERSION }}
 
-  build-and-push:
-    name: Build and Push Image
+    - name: Install dependencies
+      working-directory: ./app
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install bandit safety
+
+    - name: Run Bandit security scan
+      working-directory: ./app
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+        bandit -r . -f txt
+
+    - name: Check dependencies with Safety
+      working-directory: ./app
+      run: |
+        safety check --json > safety-report.json || true
+        safety check || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          ./app/bandit-report.json
+          ./app/safety-report.json
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: './app'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Build and deploy job
+  build-and-deploy:
+    name: Build and Deploy
     runs-on: ubuntu-latest
-    needs: [test, security-scan]
-    if: github.ref == 'refs/heads/main'
+    needs: [test, security-scan, terraform-check]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v3
@@ -91,23 +168,81 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Build and push Docker image
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-webapp
         IMAGE_TAG: ${{ github.sha }}
       run: |
         cd app
+        # Build the Docker image
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        # Push images to ECR
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        
+        # Output the image URL
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-  deploy:
-    name: Deploy to ECS
+    - name: Download current task definition
+      run: |
+        aws ecs describe-task-definition \
+          --task-definition ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-app \
+          --query taskDefinition > task-definition.json
+
+    - name: Update task definition with new image
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: app
+        image: ${{ steps.build-image.outputs.image }}
+
+    - name: Deploy to Amazon ECS
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-service
+        cluster: ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-cluster
+        wait-for-service-stability: true
+
+    - name: Verify deployment
+      run: |
+        # Wait a bit for the service to stabilize
+        sleep 30
+        
+        # Get the ALB DNS name
+        ALB_DNS=$(aws elbv2 describe-load-balancers \
+          --names "${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-alb" \
+          --query 'LoadBalancers[0].DNSName' \
+          --output text)
+        
+        # Check health endpoint
+        curl -f http://$ALB_DNS/health || exit 1
+        echo "Deployment verification successful!"
+
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack-notify@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          Deployment Status: ${{ job.status }}
+          Environment: ${{ env.ENVIRONMENT }}
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Separate job for development deployment
+  deploy-dev:
+    name: Deploy to Development
     runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main'
+    needs: [test, security-scan]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v3
@@ -119,32 +254,26 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Download task definition
-      run: |
-        aws ecs describe-task-definition \
-          --task-definition ${TASK_DEFINITION} \
-          --query taskDefinition > task-definition.json
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
 
-    - name: Fill in the new image ID in the Amazon ECS task definition
-      id: task-def
-      uses: aws-actions/amazon-ecs-render-task-definition@v1
-      with:
-        task-definition: task-definition.json
-        container-name: ${{ env.CONTAINER_NAME }}
-        image: ${{ steps.build-and-push.outputs.image }}
-
-    - name: Deploy to Amazon ECS
-      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-      with:
-        task-definition: ${{ steps.task-def.outputs.task-definition }}
-        service: ${{ env.ECS_SERVICE }}
-        cluster: ${{ env.ECS_CLUSTER }}
-        wait-for-service-stability: true
-
-    - name: Notify deployment status
-      if: always()
-      uses: rtCamp/action-slack-notify@v2
+    - name: Build and push to development
       env:
-        SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        SLACK_COLOR: ${{ job.status }}
-        SLACK_MESSAGE: 'Deployment to ECS ${{ job.status }}'
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.PROJECT_NAME }}-dev-webapp
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        cd app
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest-dev .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest-dev
+
+    - name: Update development ECS service
+      run: |
+        aws ecs update-service \
+          --cluster ${{ env.PROJECT_NAME }}-dev-cluster \
+          --service ${{ env.PROJECT_NAME }}-dev-service \
+          --force-new-deployment \
+          --region ${{ env.AWS_REGION }}

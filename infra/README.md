@@ -20,12 +20,11 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
 - **Security Groups**:
   - ALB Security Group (ports 80, 443 from 0.0.0.0/0)
   - ECS Security Group (app port from ALB only)
-  - RDS Security Group (port 5432 from ECS only)
 - **IAM Roles**:
   - ECS Task Execution Role (with AmazonECSTaskExecutionRolePolicy)
-  - ECS Task Role (with custom S3 access policies)
-- **AWS Secrets Manager**: For secure database password storage
-- **Encryption**: At-rest encryption for RDS and S3
+  - ECS Task Role (with custom S3 and DynamoDB access policies)
+- **AWS Secrets Manager**: For secure application secrets (e.g., API keys, DB passwords)
+- **Encryption**: At-rest encryption for DynamoDB and S3
 
 ### 💻 Compute Resources
 - **ECS Cluster**: Container orchestration platform
@@ -37,13 +36,11 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
 - **CloudWatch Logs**: Container logging
 
 ### 🗄️ Database Components
-- **RDS PostgreSQL**: 
-  - Multi-AZ deployment (production)
-  - Automated backups (7-day retention)
+- **DynamoDB**: 
+  - NoSQL database for persistent storage
   - Encryption at rest
-  - Auto-scaling storage (20GB to 100GB)
-- **DB Subnet Group**: Spans private subnets
-- **Database Credentials**: Stored in AWS Secrets Manager
+  - Pay-per-request mode
+- **Database Credentials**: Stored in AWS Secrets Manager (if needed for external DBs or APIs)
 
 ### 📦 Storage Components
 - **S3 Bucket**: For static assets
@@ -84,10 +81,13 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
         │                │                        │
         │  ┌─────────────┴───────────────────┐   │
         │  │      Private Subnets (2+)       │   │
-        │  │  ┌───────────┐  ┌────────────┐ │   │
-        │  │  │ECS Fargate│  │RDS Database│ │   │
-        │  │  │  Service  │  │ PostgreSQL │ │   │
-        │  │  └───────────┘  └────────────┘ │   │
+        │  │  ┌───────────┐                 │   │
+        │  │  │ECS Fargate│                 │   │
+        │  │  │  Service  │                 │   │
+        │  │  └───────────┘                 │   │
+        │  │  ┌────────────┐                │   │
+        │  │  │ DynamoDB   │                │   │
+        │  │  └────────────┘                │   │
         │  └─────────────────────────────────┘   │
         └─────────────────────────────────────────┘
                              │
@@ -110,7 +110,7 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
 │   │   ├── networking/      # VPC, subnets, gateways
 │   │   ├── security/        # Security groups, IAM
 │   │   ├── compute/         # ECS, ALB, auto-scaling
-│   │   ├── database/        # RDS PostgreSQL
+│   │   ├── database/        # DynamoDB
 │   │   └── storage/         # S3, CloudFront
 │   └── environments/        # Environment configurations
 │       ├── dev/
@@ -164,13 +164,11 @@ terraform apply -var-file=environments/prod/terraform.tfvars
 
 ### Development
 - Single NAT Gateway (cost optimization)
-- Smaller RDS instance (db.t3.micro)
 - 1 ECS task
 - No deletion protection
 
 ### Production
 - NAT Gateway per AZ (high availability)
-- Larger RDS instance (db.t3.small)
 - 2+ ECS tasks with auto-scaling
 - Deletion protection enabled
 
@@ -180,7 +178,7 @@ After deployment, Terraform will output:
 
 - `alb_dns_name`: Load balancer URL for accessing the application
 - `cloudfront_distribution_domain`: CDN URL for static assets
-- `rds_endpoint`: Database connection endpoint
+- `dynamodb_table_name`: Name of the DynamoDB table
 - `s3_bucket_name`: Name of the S3 bucket
 - `ecs_cluster_name`: Name of the ECS cluster
 - `vpc_id`: ID of the created VPC
@@ -190,25 +188,43 @@ After deployment, Terraform will output:
 1. **Network Isolation**: Private subnets for application and database
 2. **Least Privilege**: Security groups restrict traffic to minimum required
 3. **Encryption**: 
-   - RDS encryption at rest
+   - DynamoDB encryption at rest
    - S3 server-side encryption
    - HTTPS enforcement via CloudFront
-4. **Secrets Management**: Database passwords in AWS Secrets Manager
+4. **Secrets Management**: Application secrets (e.g., API keys, DB passwords) in AWS Secrets Manager
 5. **IAM Roles**: No hardcoded credentials, role-based access
+
+## Secrets Management
+
+- **AWS Secrets Manager** is used to securely store sensitive application secrets such as database passwords and external API keys.
+- Secrets are injected into ECS containers as environment variables using the ECS task definition `secrets` block.
+- IAM policies restrict access so only the ECS task can read the required secrets.
+
+**Example:**
+```python
+import os
+
+db_password = os.environ.get("DB_PASSWORD")
+api_key = os.environ.get("EXTERNAL_API_KEY")
+```
+
+**To update a secret:**
+```bash
+aws secretsmanager update-secret --secret-id "32co/prod/app/secrets" \
+  --secret-string '{"DB_PASSWORD":"your-new-password","EXTERNAL_API_KEY":"your-new-api-key"}'
+```
 
 ## Monitoring & Logging
 
 - **CloudWatch Logs**: All container logs
 - **Container Insights**: ECS cluster monitoring
 - **CloudWatch Metrics**: Auto-scaling based on CPU utilization
-- **RDS Enhanced Monitoring**: Database performance metrics
 
 ## Cost Optimization
 
 - **Auto-scaling**: Scale down during low traffic
 - **Fargate**: Pay only for resources used
 - **S3 Lifecycle**: Can add policies for old object deletion
-- **Reserved Instances**: Consider for production RDS
 - **Spot Instances**: Can be configured for non-critical workloads
 
 ## Maintenance
