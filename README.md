@@ -30,7 +30,7 @@ A cloud-native application platform built with Infrastructure as Code (Terraform
 - **Data**: DynamoDB for persistent storage
 - **Storage**: S3 bucket for static assets
 - **Security**: IAM roles, Security Groups, AWS Secrets Manager
-- **Monitoring**: CloudWatch logs and metrics
+- **Monitoring**: CloudWatch logs, metrics, alarms (via monitoring module)
 - **CI/CD**: GitHub Actions with automated deployment
 
 ## 🚀 Quick Start
@@ -242,7 +242,8 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 │       ├── security/            # IAM, security groups
 │       ├── compute/             # ECS, ALB
 │       ├── database/            # DynamoDB
-│       └── storage/             # S3
+│       ├── storage/             # S3
+│       └── monitoring/          # CloudWatch logs, metrics, alarms
 ├── .github/workflows/           # CI/CD pipeline
 │   └── ci-cd.yml               # GitHub Actions workflow
 └── README.md                    # This file
