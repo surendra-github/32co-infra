@@ -34,6 +34,34 @@ resource "aws_lb_target_group" "main" {
   tags = var.tags
 }
 
+resource "aws_lb_target_group" "green" {
+  name_prefix = "tg-g-"
+  port        = var.app_port
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    path                = "/health"
+    matcher             = "200"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-${var.environment}-tg-green"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # ALB Listener
 resource "aws_lb_listener" "main" {
   load_balancer_arn = aws_lb.main.arn
@@ -43,6 +71,18 @@ resource "aws_lb_listener" "main" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.main.arn
+  }
+}
+
+# ADD test listener for blue/green deployment (port 8080)
+resource "aws_lb_listener" "test" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "8080"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.green.arn
   }
 }
 
@@ -138,6 +178,11 @@ resource "aws_ecs_service" "app" {
   desired_count   = 2
   launch_type     = "FARGATE"
 
+  # ADD deployment controller for blue/green
+  deployment_controller {
+    type = var.enable_blue_green ? "CODE_DEPLOY" : "ECS"
+  }
+
   network_configuration {
     subnets          = var.private_subnet_ids
     security_groups  = [var.ecs_security_group_id]
@@ -148,6 +193,10 @@ resource "aws_ecs_service" "app" {
     target_group_arn = aws_lb_target_group.main.arn
     container_name   = "app"
     container_port   = var.app_port
+  }
+
+  lifecycle {
+    ignore_changes = [task_definition, load_balancer]
   }
 
   depends_on = [aws_lb_listener.main]

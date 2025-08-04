@@ -1,4 +1,5 @@
 # Security Groups
+# ALB Security Group 
 resource "aws_security_group" "alb" {
   name_prefix = "${var.project_name}-${var.environment}-alb-"
   vpc_id      = var.vpc_id
@@ -7,7 +8,25 @@ resource "aws_security_group" "alb" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "Allow HTTP from specific IPs"
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "Allow HTTPS from specific IPs"
+  }
+
+  # ADD ingress for test listener
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "Allow test traffic for blue/green deployment"
   }
 
   egress {

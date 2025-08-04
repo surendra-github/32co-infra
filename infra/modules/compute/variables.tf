@@ -89,3 +89,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_blue_green" {
+  description = "Enable blue/green deployment with CodeDeploy"
+  type        = bool
+  default     = false
+}

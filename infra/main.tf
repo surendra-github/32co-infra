@@ -23,13 +23,13 @@ module "networking" {
 
 # Security Module
 module "security" {
-  source = "./modules/security"
-
-  vpc_id       = module.networking.vpc_id
-  app_port     = var.app_port
-  environment  = var.environment
-  project_name = var.project_name
-  tags         = local.common_tags
+  source              = "./modules/security"
+  project_name        = var.project_name
+  environment         = var.environment
+  vpc_id              = module.networking.vpc_id
+  allowed_cidr_blocks = var.allowed_cidr_blocks
+  app_port            = var.app_port
+  tags                = local.common_tags
 }
 
 # Storage Module
@@ -72,6 +72,7 @@ module "compute" {
   dynamodb_table_name     = module.database.dynamodb_table_name
   app_secrets_arn         = module.security.app_secrets_arn
   s3_bucket_arn           = module.storage.s3_bucket_arn
+  enable_blue_green       = var.enable_blue_green # ADD this
   tags                    = local.common_tags
 }
 
@@ -89,4 +90,20 @@ module "monitoring" {
   dynamodb_table_name = module.database.dynamodb_table_name
   alert_email         = var.alert_email
   tags                = local.common_tags
+}
+
+# ADD CodeDeploy module
+module "codedeploy" {
+  count  = var.enable_blue_green ? 1 : 0
+  source = "./modules/codedeploy"
+
+  project_name            = var.project_name
+  environment             = var.environment
+  ecs_cluster_name        = module.compute.ecs_cluster_name
+  ecs_service_name        = module.compute.ecs_service_name
+  alb_listener_arn        = module.compute.alb_listener_arn
+  test_listener_arn       = module.compute.test_listener_arn
+  blue_target_group_name  = module.compute.blue_target_group_name
+  green_target_group_name = module.compute.green_target_group_name
+  tags                    = local.common_tags
 }

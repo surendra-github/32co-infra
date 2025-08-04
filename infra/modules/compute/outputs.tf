@@ -27,3 +27,22 @@ output "ecr_repository_url" {
   description = "URL of the ECR repository"
   value       = aws_ecr_repository.app.repository_url
 }
+output "blue_target_group_name" {
+  description = "Blue target group name"
+  value       = aws_lb_target_group.main.name
+}
+
+output "green_target_group_name" {
+  description = "Green target group name"
+  value       = aws_lb_target_group.green.name
+}
+
+output "test_listener_arn" {
+  description = "Test listener ARN"
+  value       = aws_lb_listener.test.arn
+}
+
+output "alb_listener_arn" {
+  description = "ARN of the main ALB listener"
+  value       = aws_lb_listener.main.arn
+}

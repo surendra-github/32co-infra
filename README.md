@@ -32,6 +32,23 @@ A cloud-native application platform built with Infrastructure as Code (Terraform
 - **Security**: IAM roles, Security Groups, AWS Secrets Manager
 - **Monitoring**: CloudWatch logs, metrics, alarms (via monitoring module)
 - **CI/CD**: GitHub Actions with automated deployment
+- **Deployment Strategy**: Blue/Green deployments using AWS CodeDeploy
+
+## 🚀 Deployment Strategies
+
+### Blue/Green Deployments
+
+- **Enabled via Terraform variable**: `enable_blue_green`
+- **Two ALB target groups**: "blue" (current) and "green" (new version)
+- **Test listener**: ALB listener on port 8080 for green environment health checks
+- **Traffic shifting**: Managed by AWS CodeDeploy for zero-downtime releases
+
+### AWS CodeDeploy Integration
+
+- **Automated deployments**: CodeDeploy coordinates ECS service updates and traffic shifting
+- **Rollback support**: Automatic rollback on deployment failure
+- **Deployment configuration**: Controlled via Terraform module `codedeploy`
+- **Outputs**: ALB listener ARN and target group ARNs exposed for CodeDeploy
 
 ## 🚀 Quick Start
 
@@ -240,7 +257,8 @@ api_key = os.environ.get("EXTERNAL_API_KEY")
 │   └── modules/                 # Reusable modules
 │       ├── networking/          # VPC, subnets, gateways
 │       ├── security/            # IAM, security groups
-│       ├── compute/             # ECS, ALB
+│       ├── compute/             # ECS, ALB, blue/green, CodeDeploy
+│       ├── codedeploy/          # CodeDeploy deployment group and config
 │       ├── database/            # DynamoDB
 │       ├── storage/             # S3
 │       └── monitoring/          # CloudWatch logs, metrics, alarms

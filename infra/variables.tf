@@ -39,3 +39,15 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "enable_blue_green" {
+  description = "Enable blue/green deployment strategy"
+  type        = bool
+  default     = true
+}
+
+variable "allowed_cidr_blocks" {
+  description = "List of allowed CIDR blocks for ALB ingress"
+  type        = list(string)
+  default     = ["0.0.0.0/0"] # or restrict as needed
+}

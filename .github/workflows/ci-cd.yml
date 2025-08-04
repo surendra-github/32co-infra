@@ -213,33 +213,58 @@ jobs:
         cluster: ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-cluster
         wait-for-service-stability: true
 
-    - name: Verify deployment
+    - name: Create CodeDeploy deployment
+      if: ${{ env.ENABLE_BLUE_GREEN == 'true' }}
       run: |
-        # Wait a bit for the service to stabilize
-        sleep 30
+        # Create deployment specification
+        cat > appspec.yaml << EOF
+        version: 0.0
+        Resources:
+          - TargetService:
+              Type: AWS::ECS::Service
+              Properties:
+                TaskDefinition: "${{ steps.task-def.outputs.task-definition-arn }}"
+                LoadBalancerInfo:
+                  ContainerName: "app"
+                  ContainerPort: ${{ env.APP_PORT }}
+        EOF
         
-        # Get the ALB DNS name
-        ALB_DNS=$(aws elbv2 describe-load-balancers \
-          --names "${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-alb" \
-          --query 'LoadBalancers[0].DNSName' \
-          --output text)
-        
-        # Check health endpoint
-        curl -f http://$ALB_DNS/health || exit 1
-        echo "Deployment verification successful!"
+        # Create deployment
+        aws deploy create-deployment \
+          --application-name ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-app \
+          --deployment-group-name ${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-dg \
+          --revision '{"revisionType": "AppSpecContent", "appSpecContent": {"content": "'$(cat appspec.yaml | base64 -w 0)'"}}' \
+          --deployment-config-name CodeDeployDefault.ECSAllAtOnceBlueGreen \
+          --description "Deployment of commit ${{ github.sha }}"
 
-    # - name: Notify deployment status
-    #   if: always()
-    #   uses: 8398a7/action-slack-notify@v3
-    #   with:
-    #     status: ${{ job.status }}
-    #     text: |
-    #       Deployment Status: ${{ job.status }}
-    #       Environment: ${{ env.ENVIRONMENT }}
-    #       Commit: ${{ github.sha }}
-    #       Author: ${{ github.actor }}
-    #   env:
-    #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+        - name: Verify deployment
+          run: |
+            # Wait a bit for the service to stabilize
+            sleep 30
+            
+            # Get the ALB DNS name
+            ALB_DNS=$(aws elbv2 describe-load-balancers \
+              --names "${{ env.PROJECT_NAME }}-${{ env.ENVIRONMENT }}-alb" \
+              --query 'LoadBalancers[0].DNSName' \
+              --output text)
+            
+            # Check health endpoint
+            curl -f http://$ALB_DNS/health || exit 1
+            echo "Deployment verification successful!"
+
+        # - name: Notify deployment status
+        #   if: always()
+        #   uses: 8398a7/action-slack-notify@v3
+        #   with:
+        #     status: ${{ job.status }}
+        #     text: |
+        #       Deployment Status: ${{ job.status }}
+        #       Environment: ${{ env.ENVIRONMENT }}
+        #       Commit: ${{ github.sha }}
+        #       Author: ${{ github.actor }}
+        #   env:
+        #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
 
   # Separate job for development deployment
   deploy-dev:

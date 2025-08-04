@@ -23,3 +23,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "allowed_cidr_blocks" {
+  description = "List of allowed CIDR blocks for ALB ingress rules"
+  type        = list(string)
+}

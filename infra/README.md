@@ -115,7 +115,8 @@ This repository contains a complete Infrastructure as Code (IaC) solution for de
 │   ├── modules/             # Reusable modules
 │   │   ├── networking/      # VPC, subnets, gateways
 │   │   ├── security/        # Security groups, IAM
-│   │   ├── compute/         # ECS, ALB, auto-scaling
+│   │   ├── compute/         # ECS, ALB, blue/green, CodeDeploy
+│   │   ├── codedeploy/      # CodeDeploy deployment group and config
 │   │   ├── database/        # DynamoDB
 │   │   ├── storage/         # S3, CloudFront
 │   │   └── monitoring/       # CloudWatch logs, metrics, alarms
@@ -191,6 +192,9 @@ After deployment, Terraform will output:
 - `vpc_id`: ID of the created VPC
 - `cloudwatch_log_group_name`: Name of the ECS log group
 - `cloudwatch_alarm_arn`: ARN of critical CloudWatch alarms
+- `alb_listener_arn`: ARN of the ALB listener for CodeDeploy
+- `blue_target_group_arn`: ARN of the blue target group
+- `green_target_group_arn`: ARN of the green target group
 
 ## Security Features
 
@@ -256,3 +260,9 @@ terraform apply -var-file=environments/<env>/terraform.tfvars
 - Modify `desired_count` in ECS service
 - Adjust auto-scaling min/max capacity
 - Update RDS instance class as needed
+
+## How to Enable Blue/Green Deployments
+
+1. Set `enable_blue_green = true` in your environment's `terraform.tfvars`.
+2. Deploy with Terraform as usual.
+3. CodeDeploy will manage traffic shifting and rollback automatically.
